@@ -1,0 +1,58 @@
+INFO  @ Thu, 22 Jun 2023 20:16:28: 
+# Command line: callpeak -t /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGlow/merged_ERGlow_HIS_KCZ0152_KCZ0650_homo.bam -f BAM -g 2.9e+9 -n merged_ERGlow_HIS_KCZ0152_KCZ0650_homo_macs2_001 -q 0.01 --outdir /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGlow/../peaks
+# ARGUMENTS LIST:
+# name = merged_ERGlow_HIS_KCZ0152_KCZ0650_homo_macs2_001
+# format = BAM
+# ChIP-seq file = ['/rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGlow/merged_ERGlow_HIS_KCZ0152_KCZ0650_homo.bam']
+# control file = None
+# effective genome size = 2.90e+09
+# band width = 300
+# model fold = [5, 50]
+# qvalue cutoff = 1.00e-02
+# The maximum gap between significant sites is assigned as the read length/tag size.
+# The minimum length of peaks is assigned as the predicted fragment length "d".
+# Larger dataset will be scaled towards smaller dataset.
+# Range for calculating regional lambda is: 10000 bps
+# Broad region calling is off
+# Paired-End mode is off
+ 
+INFO  @ Thu, 22 Jun 2023 20:16:28: #1 read tag files... 
+INFO  @ Thu, 22 Jun 2023 20:16:28: #1 read treatment tags... 
+INFO  @ Thu, 22 Jun 2023 20:16:31:  1000000 
+INFO  @ Thu, 22 Jun 2023 20:16:33:  2000000 
+INFO  @ Thu, 22 Jun 2023 20:16:36:  3000000 
+INFO  @ Thu, 22 Jun 2023 20:16:38:  4000000 
+INFO  @ Thu, 22 Jun 2023 20:16:41:  5000000 
+INFO  @ Thu, 22 Jun 2023 20:16:44:  6000000 
+INFO  @ Thu, 22 Jun 2023 20:16:46:  7000000 
+INFO  @ Thu, 22 Jun 2023 20:16:49:  8000000 
+INFO  @ Thu, 22 Jun 2023 20:16:52:  9000000 
+INFO  @ Thu, 22 Jun 2023 20:16:54:  10000000 
+INFO  @ Thu, 22 Jun 2023 20:16:57:  11000000 
+INFO  @ Thu, 22 Jun 2023 20:17:00:  12000000 
+INFO  @ Thu, 22 Jun 2023 20:17:00: 12026903 reads have been read. 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1 tag size is determined as 46 bps 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1 tag size = 46.0 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1  total tags in treatment: 12026903 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1 user defined the maximum tags... 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1 filter out redundant tags at the same location and the same strand by allowing at most 1 tag(s) 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1  tags after filtering in treatment: 11880410 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1  Redundant rate of treatment: 0.01 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #1 finished! 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #2 Build Peak Model... 
+INFO  @ Thu, 22 Jun 2023 20:17:00: #2 looking for paired plus/minus strand peaks... 
+INFO  @ Thu, 22 Jun 2023 20:17:04: #2 number of paired peaks: 123487 
+INFO  @ Thu, 22 Jun 2023 20:17:04: start model_add_line... 
+INFO  @ Thu, 22 Jun 2023 20:17:05: start X-correlation... 
+INFO  @ Thu, 22 Jun 2023 20:17:05: end of X-cor 
+INFO  @ Thu, 22 Jun 2023 20:17:05: #2 finished! 
+INFO  @ Thu, 22 Jun 2023 20:17:05: #2 predicted fragment length is 286 bps 
+INFO  @ Thu, 22 Jun 2023 20:17:05: #2 alternative fragment length(s) may be 286 bps 
+INFO  @ Thu, 22 Jun 2023 20:17:05: #2.2 Generate R script for model : /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGlow/../peaks/merged_ERGlow_HIS_KCZ0152_KCZ0650_homo_macs2_001_model.r 
+INFO  @ Thu, 22 Jun 2023 20:17:05: #3 Call peaks... 
+INFO  @ Thu, 22 Jun 2023 20:17:05: #3 Pre-compute pvalue-qvalue table... 
+INFO  @ Thu, 22 Jun 2023 20:17:51: #3 Call peaks for each chromosome... 
+INFO  @ Thu, 22 Jun 2023 20:18:39: #4 Write output xls file... /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGlow/../peaks/merged_ERGlow_HIS_KCZ0152_KCZ0650_homo_macs2_001_peaks.xls 
+INFO  @ Thu, 22 Jun 2023 20:18:40: #4 Write peak in narrowPeak format file... /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGlow/../peaks/merged_ERGlow_HIS_KCZ0152_KCZ0650_homo_macs2_001_peaks.narrowPeak 
+INFO  @ Thu, 22 Jun 2023 20:18:40: #4 Write summits bed file... /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGlow/../peaks/merged_ERGlow_HIS_KCZ0152_KCZ0650_homo_macs2_001_summits.bed 
+INFO  @ Thu, 22 Jun 2023 20:18:40: Done! 

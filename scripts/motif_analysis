@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#
+#PBS  -N motif_analysis
+#
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=15:mem=60gb
+
+
+module load homer/4.11
+
+findMotifsGenome.pl /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/linear_dedup/ADvas_PRR_20230504_PU1/HIS/peaks/merged_PU1_HIS_KCZ0346_KCZ0347_KCZ0348_mus_macs2_001_summits.bed mm10 /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/linear_dedup/ADvas_PRR_20230504_PU1/HIS/motif_analysis -size 200 -mask -preparsedDir rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/linear_dedup/ADvas_PRR_20230504_PU1/HIS/motif_analysis
+
+exit 0

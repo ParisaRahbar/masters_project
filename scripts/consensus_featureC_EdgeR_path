@@ -1,0 +1,192 @@
+## MAKING CONSENSUS PEAK FILE
+
+library(rtracklayer)
+library(GenomicRanges)
+
+peak_files <- c("/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/PU1/TF/peaks/merged_PU1_TF_JVD0486_JVD0493_homo_macs2_001_peaks.narrowPeak",
+                "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/ERG/TF/peaks/merged_ERG_TF_JVD0485_JVD0488_KCZ0455_homo_macs2_001_peaks.narrowPeak",
+                "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/OLIG2/TF/peaks/KCZ0156_homo_P94_OLIG2_CUTTag_rIgG_50K_20221005_R1.macs2_peaks.narrowPeak")
+
+#reading peak_files in granges             
+peak_granges <- lapply(peak_files, import) 
+
+#combiing two GRanges peak sets 
+mergedGRanges<-unlist(as(peak_granges, "GRangesList"))
+
+covered_granges<-reduce(mergedGRanges, min.gapwidth=31)
+covered_granges
+export(covered_granges, "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERG_OLIG_TF_homo.bed")
+
+pks <- read.table( "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERG_OLIG_TF_homo.bed")
+
+pks$GeneID <- paste0("Peak","_", row.names(pks))
+pks <- pks[c(7,1,2,3,4)]
+
+# create saf file for FeatureCounts
+names(pks) <- c("GeneID", "Chr", "Start", "End", "Strand")
+library(ChIPseeker)
+peaks.gr = makeGRangesFromDataFrame(pks,keep.extra.columns=TRUE)
+peaks.gr
+table(as.character(seqnames(peaks.gr)))
+peaks.gr = keepStandardChromosomes(peaks.gr, pruning.mode ="coarse")
+pks <- as.data.frame(peaks.gr)
+pks <- pks[-which(pks$seqnames== "chrX"|pks$seqnames=="chrY"),]
+
+pks <- pks[c(6,1,2,3,5)]
+names(pks) <- c("GeneID", "Chr", "Start", "End", "Strand")
+pks$strand <- "+"
+write.table(pks, file= "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERG_OLIG_TF_homo.saf", col.names=T, row.names=F, quote=F, sep="\t")
+
+
+## FeatureCounts - MAKING A MATRIX FOR EdgeR DIFFERETIAL ANALYSIS 
+# Load required libraries
+library(Rsubread)
+
+# Define file paths
+files <- c(
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/PU1/TF/TF_bam/JVD0486_homo_P63_PU1_CUTTag_TF_WT_20230327_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/PU1/TF/TF_bam/JVD0493_homo_UCSD_20221507_PU1_CUTTag_TF_WT_20230331_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/ERG/TF/TF_bam/JVD0485_homo_P63_ERG_CUTTag_TF_WT_20230327_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/ERG/TF/TF_bam/JVD0488_homo_P94_ERG_CUTTag_TF_WT_20230310_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/ERG/TF/TF_bam/JVD0494_homo_UCSD_20221507_ERG_CUTTag_TF_WT_20230331_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/Nextflow/cut_tag/analysed_data/AADvas_PRR_20230516_hum/02_alignment/bowtie2/target/linear_dedup/KCZ0156_homo_P94_OLIG2_CUTTag_rIgG_50K_20221005_R1.target.linear_dedup.sorted.bam"
+)
+
+saf <- "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERG_OLIG_TF_homo.saf"
+
+# Run featureCounts
+featureCounts <- featureCounts(files = files, annot.inbuilt = "hg38", annot.ext = saf, isPairedEnd = TRUE)
+
+# Extract the counts from the featureCounts object
+counts <- featureCounts$counts
+
+# Define the output file path
+output_file <- "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/featureCounts_files/PU1_ERG_OLIG_TF_homo.txt"
+
+# Write counts to a text file
+write.table(counts, file = output_file, sep = "\t", quote = FALSE, col.names = NA)
+
+##PU1vsERG
+library(edgeR)
+library(dplyr)
+
+# reading the FeatureCounts file
+pksolg <- read.table("/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/featureCounts_files/PU1_ERG_OLIG_TF_homo.txt", header = T)
+
+# Specify the group each sample belongs to
+countsGroups <- factor(c(rep("PU1", 2), rep("ERG", 3), "OLIG"))
+
+# Create DGEList object
+d <- DGEList(counts = pksolg,group = countsGroups)
+
+# Create design matrix 
+design <- model.matrix(~ 0 + group, data = d$samples)
+# Now ERG is explicit in my design matrix and The contrasts are comparing each group to "ERG":
+colnames(design)
+
+# Normalization and dispersion estimation
+d <- calcNormFactors(d)
+d <- estimateDisp(d, design)
+
+# Fit the model
+fit <- glmQLFit(d, design)
+quasiLFT <- glmQLFTest(fit) 
+qlf <- glmQLFTest(fit)
+# create contrasts 
+qlf_PU1vsERG <- glmQLFTest(fit, contrast=makeContrasts(groupPU1 - groupERG, levels=design))
+
+# Extract topTags
+topTags_PU1vsERG <- topTags(qlf_PU1vsERG, n=Inf)
+topTags_PU1vsERG <- as.data.frame(topTags_PU1vsERG)
+de <- topTags_PU1vsERG
+
+de$diffexpressed <- "NO"
+# if log2Foldchange > 0 and pvalue < 0.05, set as "UP"
+de$diffexpressed[de$logFC > 0 & de$FDR < 0.05] <- "UP"
+# if log2Foldchange < -0 and pvalue < 0.05, set as "DOWN"
+de$diffexpressed[de$logFC < 0 & de$FDR < 0.05] <- "DOWN"
+#de$diffexpressed <- ifelse(de$logFC >0 & de$FDR <0.05, "UP", de$diffexpressed)
+table(de$diffexpressed)
+
+# DOWN    NO    UP 
+#4098 22703  5965 
+
+##selecting overlapped peaks
+NO <- de[grepl("NO", de$diffexpressed), ]
+
+#loading reference peak IDs
+pks<-read.table(file= "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERG_OLIG_TF_homo.saf", 
+                header = T, sep = "\t")
+NO_peaks <- as.data.frame(NO)
+print(NO_peaks)
+
+NO_peaks$peak_id <- rownames(NO_peaks)
+NO_peaks <- NO_peaks[, c("peak_id", "logFC", "logCPM", "F", "PValue", "FDR", "diffexpressed")]
+
+# Check the result
+head(NO_peaks)
+
+# Filter the SAF data to include only my peaks of interest
+filtered_saf <- pks[pks$GeneID %in% NO_peaks$peak_id, ]
+# Print the number of common peaks found in the SAF file
+print(length(unique(NO_peaks$peak_id)))
+print(length(unique(pks$GeneID)))
+print(nrow(filtered_saf))
+
+
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(GenomicRanges)
+library(gprofiler2)
+library(ggplot2)
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+annoDb <- org.Hs.eg.db
+#Read in the peaks
+peaks <- filtered_saf 
+
+#convert my data frame to GRanges 
+granges_peaks <- GRanges(
+  seqnames = peaks$Chr,
+  ranges = IRanges(
+    start = peaks$Start,
+    end = peaks$End))
+
+#granges_peaks <- as.data.frame(granges_peaks)
+
+# Annotate the peaks
+annotated_peaks <- annotatePeak(granges_peaks, tssRegion = c(-1000, 1000), TxDb = txdb, assignGenomicAnnotation = T, annoDb = "org.Hs.eg.db", verbose = T)
+#CHECK THIS HOW TO PROPERLY EXCTRACT GENE INFO
+PU1_ERG_OVERLAP_annotated_genes<-as.data.frame(annotated_peaks@anno) 
+print(PU1_ERG_OVERLAP_annotated_genes)
+
+
+write.table(PU1_ERG_OVERLAP_annotated_genes, file = "~/Desktop/R_RESULTS/PU1_ERG_OVERLAP_annotated_genes.txt", sep = "\t", row.names = FALSE)
+
+library(ChIPseeker)
+library(ggplot2)
+
+
+gostres <- gost(query = unique(PU1_ERG_OVERLAP_annotated_genes$SYMBOL), 
+                organism = "hsapiens", ordered_query = FALSE, 
+                multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
+                measure_underrepresentation = FALSE, evcodes = FALSE, 
+                user_threshold = 0.05, correction_method = "g_SCS", 
+                domain_scope = "annotated", custom_bg = NULL, 
+                numeric_ns = "", sources = NULL, as_short_link = FALSE)
+print(gostres)
+enriched_pathways<-gostres$result
+
+# Select top 10 enriched terms based on p-value
+top_terms <- enriched_pathways[order(gostres$result$p_value), ][1:20, ]
+names(top_terms)
+
+top_terms$log10_p_value <- -log10(top_terms$p_value)
+
+ggplot(top_terms, aes(x = reorder(term_name, log10_p_value), y = log10_p_value)) +
+  geom_bar(stat = 'identity', fill = 'darkblue') +
+  coord_flip() +
+  labs(x = 'Term', y = '-log10(p-value)',
+       title = 'PU1_TF_Top 20 enriched pathways',
+       subtitle = 'Ranked by p-value') +
+       geom_hline(yintercept = -log10(0.05), color = "orange") +
+  theme_minimal()

@@ -1,0 +1,2 @@
+[E::hts_open_format] Failed to open file /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGmix/JKCZ0642_homo_P70_ERG_CUTTag_H3K27ac_WT_20230509_R1.target.linear_dedup.sorted.bam
+samtools view: failed to open "/rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files/ERGmix/JKCZ0642_homo_P70_ERG_CUTTag_H3K27ac_WT_20230509_R1.target.linear_dedup.sorted.bam" for reading: No such file or directory
