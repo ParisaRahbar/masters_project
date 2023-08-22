@@ -1,0 +1,84 @@
+#!/bin/bash
+
+#
+#PBS  -N his_annot_ldsc
+#
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=15:mem=300gb
+
+## Create conda env (DO THIS STEP BEFORE ATTEMPTING TO RUN LDSC) 
+#cd ~/../projects/epinott/live/scripts/ldsc/ldsc
+#conda env create --file environment.yml
+
+module load anaconda3/personal
+source activate ldsc
+
+LDSC="/rds/general/user/pr422/projects/epinott/live/scripts/ldsc/ldsc"
+REQUIRED_FILES="/rds/general/user/pr422/projects/epinott/live/scripts/ldsc/required_files"
+ANNOT_FILES="/rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/ldsc_his_cut_new/annot_file"
+HERITABILITY_OUTPUT="/rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/ldsc_his_cut_new/heritability"
+
+
+#list your cell types for analysis EG:
+export cell=('ERGhi' 'PU1' 'OLIG2' 'NOTCH3') 
+#list your region for analysis EG:
+export region=('HIS')
+#list of diseases, only keep the disease you are interested in (select from the list below)
+export disease=('AD_Jan' 'AD_Kunkle')
+
+
+## Step 1: Creating an annot file 
+
+for cell_type in "${cell[@]}"
+do
+  for region_type in "${region[@]}"
+  do
+    for chrom in {1..22}
+    do
+## Step 1: Creating an annot file
+  python ${LDSC}/make_annot.py \
+  --bed-file  ~/../projects/epinott/live/user_analysed_data/Parisa/ldsc_his_cut_new/bed_files/${cell_type}_${region_type}_homo_new.bed \
+  --bimfile ${REQUIRED_FILES}/1000G_EUR_Phase3_plink/1000G.EUR.QC.${chrom}.bim \
+  --annot-file ${ANNOT_FILES}/${cell_type}_${region_type}_homo_new.${chrom}.annot.gz
+done
+done
+done
+
+## Step 2: Generating ldsc scores 
+
+for cell_type in "${cell[@]}"
+do
+  for region_type in "${region[@]}"
+  do
+    for chrom in {1..22}
+    do
+		python ${LDSC}/ldsc.py \
+  --l2 \
+  --bfile ${REQUIRED_FILES}/1000G_EUR_Phase3_plink/1000G.EUR.QC.${chrom} \
+  --ld-wind-cm 1 \
+  --annot ${ANNOT_FILES}/${cell_type}_${region_type}_homo_new.${chrom}.annot.gz  \
+  --thin-annot \
+  --out ${ANNOT_FILES}/${cell_type}_${region_type}_homo_new.${chrom} \
+  --print-snps ${REQUIRED_FILES}/list.txt 
+done
+done
+done
+
+## Step 3: Running ldsc - disease enrichment  analysis 
+
+for disease_type in "${disease[@]}"
+do
+  for region_type in "${region[@]}"
+  do
+python ${LDSC}/ldsc.py \
+--h2 ${REQUIRED_FILES}/GWAS_munge/${disease_type}_ldsc.sumstats.gz \
+--ref-ld-chr ${REQUIRED_FILES}/1000G_Phase3_baselineLD_v2.2_ldscores/baselineLD.,${ANNOT_FILES}/ERGhi_${region_type}_homo_new.,${ANNOT_FILES}/NOTCH3_${region_type}_homo_new.,${ANNOT_FILES}/OLIG2_${region_type}_homo_new.,${ANNOT_FILES}/PU1_${region_type}_homo_new. \
+--out ${HERITABILITY_OUTPUT}/${disease_type}_${region_type} \
+--overlap-annot  \
+--frqfile-chr ${REQUIRED_FILES}/1000G_Phase3_frq/1000G.EUR.QC. \
+--w-ld-chr ${REQUIRED_FILES}/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
+--print-coefficients
+done
+done
+
+exit 0 
