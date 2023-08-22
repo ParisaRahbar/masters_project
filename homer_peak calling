@@ -1,0 +1,16 @@
+#http://homer.ucsd.edu/homer/ngs/peaks.html#Variable_length
+
+module load samtools
+
+#coverting bam to sam to make tagDirectories for findPeaks in HOMER
+
+samtools view /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/his/bam_files/ERGmix/merged_ERG_his_KCZ0648_JVD0485_JVD0488_JVD0494_homo.bam > /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/his/bam_files/ERG/merged_ERGm_his_KCZ0648_JVD0485_JVD0488_JVD0494_homo.sam
+
+module load homer/4.11
+
+
+makeTagDirectory /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/his/tagdirectory_factor_style/ /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/his/bam_files/ERG/merged_ERG_his_KCZ0648_JVD0485_JVD0488_JVD0494_homo.sam -format sam
+
+#calling peaks using histone style (give path to where tag directories are, -o auto will save peak files in tag directory)
+
+findPeaks /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/his/tagdirectory_factor_style/ -style histone -o auto 
