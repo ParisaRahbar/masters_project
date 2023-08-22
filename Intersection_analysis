@@ -1,0 +1,148 @@
+library(rtracklayer)
+library(GenomicRanges)
+library(data.table)
+library(dplyr)
+```
+
+#Loading .bed files and making list of granges 
+```{r}
+input_files<-list.files(path = "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/ldsc_TF_cut_new/bed_files/", pattern = ".bed", full.names = TRUE)
+names<-list.files(path = "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/ldsc_TF_cut_new/bed_files/", pattern = ".bed", full.names = FALSE)
+
+DT_ranges<-lapply(input_files, import)
+names(DT_ranges)<-c(names)
+```
+#Making UCSC bedgraph - DONT RUN THIS
+```{r}
+jansen_0.05<-read.table(file = "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/gwas_result/AD_jansen2019_nsum_5e-8.txt", sep = "\t",header = T)
+
+colnames_2<-c("chrom", "chromStart", "chromEnd", "score")
+
+ucsc<-jansen_0.05[,c(2,3,3,8)]
+colnames(ucsc)<-colnames_2
+ucsc$score<--log10(ucsc$score)
+ucsc$score<-gsub(pattern = "Inf", replacement = 300, x = ucsc$score)
+ucsc$chrom<-paste("chr",ucsc$chrom)
+ucsc$chrom<-gsub(pattern = " ", replacement = "", ucsc$chrom)
+
+write.table(x = ucsc, file = "~/../projects/epinott/live/user_analysed_data/Aydan/GWAS_sumstats/AD_jansen2019_hg19_-log10_5e-8.bedGraph", sep = "\t", quote = F, row.names = F, col.names = F)
+
+```
+
+
+
+#Reading the GWAS file
+```{r}
+
+gwas_0.05<-read.table(file = "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/gwas_result/AD_jansen2019_nsum_5e-8.txt", sep = "\t",header = T)
+
+gwas_0.05$CHR<-paste("chr",gwas_0.05$CHR)
+gwas_0.05$CHR<-gsub(pattern = " ", replacement = "", x = gwas_0.05$CHR)
+gwas_granges<-GRanges(seqnames = gwas_0.05$CHR, ranges = IRanges(gwas_0.05$BP, end = gwas_0.05$BP), rsid=gwas_0.05$SNP, rsid_position=gwas_0.05$BP, rsid_p=gwas_0.05$P, rsid_frq=gwas_0.05$FRQ, rsid_beta=gwas_0.05$BETA, rsid_a1=gwas_0.05$A1, rsid_a2=gwas_0.05$A2, rsid_se=gwas_0.05$SE, rsid_n=gwas_0.05$NSUM)
+```
+
+
+```{r setup, include=FALSE}
+
+  filename <- "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/TF/bam_files/peaks/merged_ERGmix_TF_KCZ0648_JVD0485_JVD0488_JVD0494_homo_macs2_001_peaks.narrowPeak"
+
+# Read the file, assuming it's tab-delimited
+peaks <- read.table(filename, sep="\t", header=FALSE)
+
+# Count the number of peaks
+number_of_peaks <- nrow(peaks)
+
+print(paste("The number of peaks in the file is:", number_of_peaks))
+
+#ERG
+
+olap1<-findOverlaps(query = DT_ranges$combined_uniqe_overlap_ERG_TF_homo_new.bed, subject = gwas_granges) #default maxgap=-1L, when one range’s start/end strictly inside the other, the gap is considered to be -1.
+DT_overlaps<-DT_ranges$combined_uniqe_overlap_ERG_TF_homo_new.bed[queryHits(olap1)]
+mcols(DT_overlaps)<-cbind(mcols(DT_ranges$combined_uniqe_overlap_ERG_TF_homo_new.bed[queryHits(olap1)]), mcols(gwas_granges[subjectHits(olap1)]))
+DT_overlaps_data<-as.data.frame(DT_overlaps)
+DT_overlaps_data<-unique(DT_overlaps_data)
+DT_overlaps_data <- DT_overlaps_data %>% arrange(DT_overlaps_data$rsid_p)
+
+write.table(x = DT_overlaps_data, file = "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/gwas_result/TF/combined_uniqe_overlap_ERG_TF_homo_new_AUG.txt", quote = F, sep = "\t", row.names = F, col.names = T)
+#convert my data frame to GRanges 
+granges_peaks <- GRanges(
+  seqnames = DT_overlaps_data$seqnames,
+  ranges = IRanges(
+    start = DT_overlaps_data$rsid_position,
+    end = DT_overlaps_data$rsid_position)
+)
+
+# Add the rsid_p column as metadata
+mcols(granges_peaks)$rsid_p <- DT_overlaps_data$rsid_p
+mcols(granges_peaks)$rsid <- DT_overlaps_data$rsid
+
+#granges_peaks <- as.data.frame(granges_peaks)
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+library(GenomicRanges)
+library(gprofiler2)
+library(ggplot2)
+library(org.Hs.eg.db)
+txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene
+annoDb <- org.Hs.eg.db
+# Annotate the peaks
+annotated_peaks <- annotatePeak(granges_peaks, tssRegion = c(-1000, 1000), TxDb = txdb, assignGenomicAnnotation = T, annoDb = "org.Hs.eg.db", verbose = T)
+#Annotated genes/CHECK THIS HOW TO PROPERLY EXCTRACT GENE INFO
+ERG_TF_SNPs_annotated_genes<-as.data.frame(annotated_peaks) 
+print(ERG_TF_SNPs_annotated_genes)
+write.table(ERG_TF_SNPs_annotated_genes, file = "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/gwas_result/MACS2/TF/ERG/ERG_TF_macs2_SNPs_annotated_genes.txt", sep = "\t", row.names = FALSE)
+custom_colors <- c(`promoter`="skyblue3", `3' UTR`="orange", `Other Intron`="limegreen",  `Distal Intergenic`="darkgreen")
+
+plotAnnoPie(annotated_peaks, col = custom_colors)
+
+#colnames(unique_annotated_genes)
+gostres <- gost(query = unique(ERG_TF_SNPs_annotated_genes$SYMBOL), 
+                organism = "hsapiens", ordered_query = FALSE, 
+                multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
+                measure_underrepresentation = FALSE, evcodes = FALSE, 
+                user_threshold = 0.05, correction_method = "g_SCS", 
+                domain_scope = "annotated", custom_bg = NULL, 
+                numeric_ns = "", sources = NULL, as_short_link = FALSE)
+print(gostres)
+enriched_pathways_ERG_TF_SNPs_annotated_genes<-gostres$result
+
+
+# Select top 7 enriched terms based on p-value
+top_terms <- enriched_pathways_ERG_TF_SNPs_annotated_genes[order(gostres$result$p_value), ][1:10, ]
+names(top_terms)
+
+top_terms$log10_p_value <- -log10(top_terms$p_value)
+
+ggplot(top_terms, aes(x = reorder(term_name, -log10_p_value), y = log10_p_value)) +
+  geom_bar(stat = 'identity', fill = 'darkgreen') +
+  coord_flip() +
+  labs(x = 'Term', y = '-log10(p-value)',
+       title = 'Endothelial_TF_top 10 enriched pathways',
+       subtitle = 'Ranked by p-value') +
+  theme_minimal()
+
+# Make sure p-values are numeric
+ERG_TF_SNPs_annotated_genes$rsid_p <- as.numeric(ERG_TF_SNPs_annotated_genes$rsid_p)
+
+f<- ggplot(ERG_TF_SNPs_annotated_genes, aes(x=annotation, y=rsid, color=-log10(rsid_p))) +
+  geom_point(size=2) +
+  theme(axis.text.x = element_text(angle = 100, vjust = 0.5)) + 
+  labs(title="SNPs by Chromosome",
+       x="annotation", y="SNP", color="-log10(p)")
+
+# Add text labels for the top N most significant points
+top_N <- 10 # Change this to the number of labels you want
+top_N_variants <-ERG_TF_SNPs_annotated_genes[order(ERG_TF_SNPs_annotated_genes$rsid_p)[1:top_N],]
+
+# Load the ggrepel package
+library(ggrepel)
+
+# Add text labels to the plot for the top N variants using ggrepel
+# The labels are repelled from each other to prevent overlap
+# Jitter is added to the position to avoid overplotting
+f + geom_text_repel(data = top_N_variants, 
+                    aes(label = rsid),   # Label text
+                    size = 5,            # Text size
+                    segment.curvature = 0.1, # Curvature of the connecting line
+                    position = position_jitter(width = 0.38)) # Add jitter to position
+
