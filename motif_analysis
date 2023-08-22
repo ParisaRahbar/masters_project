@@ -1,0 +1,15 @@
+#!/bin/bash
+
+#
+#PBS  -N motif_analysis
+#
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=15:mem=60gb
+#PBS -o Merging_peakcalling_frip_normalising.log
+
+module load homer/4.11
+
+
+findMotifsGenome.pl /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/TF/peaks/merged_PU1_TF_KCZ0649_JVD0493_JVD0486_homo_macs2_001_summits.bed hg38 /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/TF/motif_analysis -size 200 -mask -preparsedDir /rds/general/user/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/TF/motif_analysis
+
+exit 0
