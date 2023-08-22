@@ -1,0 +1,119 @@
+## MAKING CONSENSUS PEAK FILE
+
+library(rtracklayer)
+library(GenomicRanges)
+
+peak_files <- c("/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files_peaks/peaks/merged_ERGhigh_HIS_KCZ0641_homo_macs2_001_peaks.narrowPeak",
+                "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/HIS/peaks/merged_PU1_HIS_JVD0487_JVD0492_KCZ0455_KCZ0645_homo_macs2_001_peaks.narrowPeak")
+
+#reading peak_files in granges             
+peak_granges <- lapply(peak_files, import) 
+
+# Remove the undesired chromosomes from your GRanges objects in the list
+filteredGRanges <- lapply(peak_granges, function(gr) {
+  gr[!(seqnames(gr) %in% c("chrY", "chrX", "chr9_KI270718v1_random", "chr14_GL000194v1_random", "chr1_KI270712v1_random", "chr1_KI270714v1_random", "chrUn_GL000195v1", "chrUn_GL000218v1", "chrUn_GL000219v1",
+                           "chr17_GL000205v2_random", "chr22_KI270733v1_random", "chr1_KI270713v1_random", "chrUn_GL000224v1", "chrUn_KI270438v1", "chr14_GL000194v1_random",
+                           "chr17_GL000205v2_random", "chr1_KI270711v1_random", "chr9_KI270718v1_random", "chrUn_GL000195v1"))]
+})
+
+# Unlist GRangesList to get a single GRanges object
+unlistedGRanges<-unlist(as(filteredGRanges, "GRangesList"))
+
+
+# Use reduce to merge overlapping ranges
+mergedGRanges <- GenomicRanges::reduce(unlistedGRanges, min.gapwidth=31)
+
+export(mergedGRanges, "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERGhi_new_his_homo.bed")
+
+pks <- read.table( "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERGhi_new_his_homo.bed")
+
+pks$GeneID <- paste0("Peak","_", row.names(pks))
+pks <- pks[c(7,1,2,3,4)]
+names(pks) <- c("GeneID", "Chr", "Start", "End", "Strand")
+pks$strand <- "+"
+write.table(pks, file= "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERGhi_new_his_homo.saf", col.names=T, row.names=F, quote=F, sep="\t")
+
+
+## FeatureCounts - MAKING A MATRIX FOR EdgeR DIFFERETIAL ANALYSIS 
+# Load required libraries
+library(Rsubread)
+
+# Define file paths
+files <- c(
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/ERG/HIS/bam_files_peaks/ERGhigh/KCZ0641_homo_P94_ERGhi_CUTTag_H3K27ac_WT_20230509_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/HIS/bam_files/JVD0487_homo_P63_PU1_CUTTag_H3K27ac_WT_20230327_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/HIS/bam_files/JVD0492_homo_UCSD_20221507_PU1_CUTTag_H3K27ac_WT_20230331_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/HIS/bam_files/KCZ0455_homo_P70_PU1_CUTTag_H3K27ac_WT_20230306_R1.target.linear_dedup.sorted.q30.bam",
+  "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human_cut/PU1/HIS/bam_files/KCZ0645_homo_UCSD_220803_PU1_CUTTag_H3K27ac_WT_20230510_R1.target.linear_dedup.sorted.q30.bam")
+
+saf <- "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/consensus_peaks/PU1_ERGhi_new_his_homo.saf"
+
+# Run featureCounts
+featureCounts <- featureCounts(files = files, annot.inbuilt = "hg38", annot.ext = saf, isPairedEnd = TRUE)
+
+# Extract the counts from the featureCounts object
+counts <- featureCounts$counts
+
+# Define the output file path
+output_file <- "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/featureCounts_files/PU1_ERGhi_new_his_homo.txt"
+
+# Write counts to a text file
+write.table(counts, file = output_file, sep = "\t", quote = FALSE, col.names = NA)
+
+##PU1vsERG
+library(edgeR)
+library(dplyr)
+
+# reading the FeatureCounts file
+pksolg <- read.table("/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/differential_analysis/featureCounts_files/PU1_ERGhi_new_his_homo.txt", header = T)
+
+# Specify the group each sample belongs to
+countsGroups <- factor(c("ERG" , rep("PU1", 4)))
+
+# Create DGEList object
+d <- DGEList(counts = pksolg,group = countsGroups)
+
+# Create design matrix 
+design <- model.matrix(~ 0 + group, data = d$samples)
+# Now ERG is explicit in my design matrix and The contrasts are comparing each group to "ERG":
+colnames(design)
+
+# Normalization and dispersion estimation
+d <- calcNormFactors(d)
+d <- estimateDisp(d, design)
+
+# Fit the model
+fit <- glmQLFit(d, design)
+quasiLFT <- glmQLFTest(fit) 
+qlf <- glmQLFTest(fit)
+# create contrasts 
+qlf_PU1vsERG <- glmQLFTest(fit, contrast=makeContrasts(groupPU1 - groupERG, levels=design))
+
+# Extract topTags
+topTags_PU1vsERG <- topTags(qlf_PU1vsERG, n=Inf)
+topTags_PU1vsERG <- as.data.frame(topTags_PU1vsERG)
+de <- topTags_PU1vsERG
+
+de$diffexpressed <- "NO"
+# if log2Foldchange > 0 and pvalue < 0.05, set as "UP"
+de$diffexpressed[de$logFC > 0 & de$FDR < 0.05] <- "UP"
+# if log2Foldchange < -0 and pvalue < 0.05, set as "DOWN"
+de$diffexpressed[de$logFC < 0 & de$FDR < 0.05] <- "DOWN"
+#de$diffexpressed <- ifelse(de$logFC >0 & de$FDR <0.05, "UP", de$diffexpressed)
+table(de$diffexpressed)
+
+
+# DOWN    NO    UP 
+# 8586 36173 11896
+
+# Create volcano plot
+library(ggplot2)
+ggplot(data=de, aes(x=logFC, y=-log10(FDR), col=diffexpressed)) +
+  geom_point() +
+  theme_minimal() +
+  ggtitle("Volcano plot of PU1_his vs ERGhi_his ")+
+  scale_color_manual(values=c("blue", "black", "red")) +
+  geom_vline(xintercept=c(-0.6, 0.6), col="red") +
+  geom_hline(yintercept=-log10(0.05), col="red")
+ggsave("volcano_plot.png", width = 8, height = 6, dpi = 300)
+
