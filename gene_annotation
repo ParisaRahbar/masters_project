@@ -1,0 +1,78 @@
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(GenomicRanges)
+library(gprofiler2)
+library(ggplot2)
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+annoDb <- org.Hs.eg.db
+#Read in the peaks
+peaks <- filtered_saf 
+
+#convert my data frame to GRanges 
+granges_peaks <- GRanges(
+  seqnames = peaks$Chr,
+  ranges = IRanges(
+    start = peaks$Start,
+    end = peaks$End))
+
+#granges_peaks <- as.data.frame(granges_peaks)
+
+# Annotate the peaks
+annotated_peaks <- annotatePeak(granges_peaks, tssRegion = c(-1000, 1000), TxDb = txdb, assignGenomicAnnotation = T, annoDb = "org.Hs.eg.db", verbose = T)
+#Annotated genes/CHECK THIS HOW TO PROPERLY EXCTRACT GENE INFO
+ERGhi_HIS_unique_annotated_genes_new <-as.data.frame(annotated_peaks@anno@elementMetadata) 
+print(ERGhi_HIS_unique_annotated_genes_new)
+write.table(ERGhi_HIS_unique_annotated_genes_new, file = "~/Desktop/new/ERGhi_HIS_unique_annotated_genes_new.txt", sep = "\t", row.names = FALSE)
+?annotatePeak
+annotated_peaks@anno
+
+# Required libraries
+library(ChIPseeker)
+library(ggplot2)
+
+# Plot peak annotation
+plotAnnoPie(annotated_peaks)
+
+# Bar plot with title
+plotAnnoBar(annotated_peaks) + ggtitle("ERGhi_HIS_unique_annotated_peaks_new")
+plotAnnoBar(annotated_peaks)
+
+# Create a histogram of the distances to the TSS
+plotDistToTSS(annotated_peaks, title="Distances to the TSS")
+
+
+# Enrichment analysis /gProfiler 
+#If you just want to look at promoters
+erg_annot_split<-split(x = erg_annot, f = erg_annot$annotation)
+erg_annot_promoters<-erg_annot_split$Promoter
+
+#colnames(unique_annotated_genes)
+gostres <- gost(query = unique(ERGhi_HIS_unique_annotated_genes_new$SYMBOL), 
+                organism = "hsapiens", ordered_query = FALSE, 
+                multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
+                measure_underrepresentation = FALSE, evcodes = FALSE, 
+                user_threshold = 0.05, correction_method = "g_SCS", 
+                domain_scope = "annotated", custom_bg = NULL, 
+                numeric_ns = "", sources = NULL, as_short_link = FALSE)
+print(gostres)
+enriched_pathways_ERGhi<-gostres$result
+class(enriched_pathways_ERGhi)
+enriched_pathways_ERGhi <- as.data.frame(enriched_pathways_ERGhi)
+colnames(enriched_pathways_ERGhi)
+subset_df <- enriched_pathways_ERGhi[, c("query", "significant", "p_value", "term_size", "query_size", "intersection_size", "precision", "recall", "term_id", "source", "term_name", "effective_domain_size", "source_order")]
+write.table(subset_df, file = "~/Desktop/new/enriched_pathways_ERGhi.txt", sep = "\t", row.names = FALSE)
+
+# Select top 20 enriched terms based on p-value
+top_terms <- enriched_pathways[order(gostres$result$p_value), ][1:20, ]
+names(top_terms)
+
+top_terms$log10_p_value <- -log10(top_terms$p_value)
+
+ggplot(top_terms, aes(x = reorder(term_name, log10_p_value), y = log10_p_value)) +
+  geom_bar(stat = 'identity', fill = 'darkblue') +
+  coord_flip() +
+  labs(x = 'Term', y = '-log10(p-value)',
+       title = 'enriched_pathways_ERGhi',
+       subtitle = 'Ranked by p-value') +
+  geom_hline(yintercept = -log10(0.05), color = "orange") +
+  theme_minimal()
