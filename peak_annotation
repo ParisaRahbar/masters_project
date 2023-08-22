@@ -1,0 +1,45 @@
+#ANNOTATING PEAKS
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(GenomicRanges)
+library(gprofiler2)
+library(ggplot2)
+library(org.Hs.eg.db)
+library(rtracklayer)
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+annoDb <- org.Hs.eg.db
+# Read in the peaks
+files <- c("/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/PU1/TF/peaks/merged_PU1_TF_homo.narrowPeak.bed",
+           "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/ERG/TF/peaks/merged_ERG_TF_homo.narrowPeak.bed",
+           "/Volumes/pr422/projects/epinott/live/user_analysed_data/Parisa/human/OLIG2/TF/peaks/merged_OLIG_TF_homo.narrowPeak.bed")
+
+# Import the files into GRanges objects
+peak_granges <- lapply(files, rtracklayer::import) 
+
+# Assign names to the GRanges objects in the list
+names(peak_granges) <- c("PU1_TF", "ERG_TF", "OLIG2_TF")
+
+# Remove the undesired chromosomes from your GRanges objects in the list
+filteredGRanges <- lapply(peak_granges, function(gr) {
+  gr[!(seqnames(gr) %in% c("chrY", "chrX", "chr9_KI270718v1_random", "chr14_GL000194v1_random", "chr1_KI270712v1_random", "chr1_KI270714v1_random", "chrUn_GL000195v1", "chrUn_GL000218v1", "chrUn_GL000219v1",
+                           "chr17_GL000205v2_random", "chr22_KI270733v1_random", "chr1_KI270713v1_random","chrUn_KI270438v1", "chrUn_GL000224v1", "chrUn_GL000220v1", "chrUn_KI270330v1"))]
+})
+
+# Annotate the peaks
+annotated_peaks <- lapply(filteredGRanges, function(gr) {
+  ChIPseeker::annotatePeak(gr, tssRegion = c(-1000, 1000), TxDb = txdb, assignGenomicAnnotation = T, annoDb = "org.Hs.eg.db", verbose = T)
+})
+
+# Required libraries
+library(ChIPseeker)
+library(ggplot2)
+
+# Plot peak annotation
+plotAnnoPie(annotated_peaks)
+
+# Bar plot with title
+plotAnnoBar(annotated_peaks) + ggtitle("Unique_ERG_annotated_peaks")
+plotAnnoBar(annotated_peaks)
+
+# Create a histogram of the distances to the TSS
+plotDistToTSS(annotated_peaks, title="Distances to the TSS")
